@@ -2,6 +2,8 @@ package com.mycompany.service;
 
 import com.mycompany.clients.fraud.FraudCheckResponce;
 import com.mycompany.clients.fraud.FraudClient;
+import com.mycompany.clients.notification.NotificationClient;
+import com.mycompany.clients.notification.NotificationRequest;
 import com.mycompany.customer.Customer;
 import com.mycompany.customer.CustomerRegistrationRequest;
 import com.mycompany.repository.CustomerRepository;
@@ -14,6 +16,7 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final FraudClient fraudClient;
+    private final NotificationClient notificationClient;
 
     public void registerCustomer(CustomerRegistrationRequest request) {
         Customer customer = Customer.builder()
@@ -29,5 +32,12 @@ public class CustomerService {
         if (fraudCheckResponce.isFraudster()) {
             throw new RuntimeException("fraudster!!!");
         }
+
+        notificationClient.sendNotification(
+                new NotificationRequest(
+                        customer.getId(),
+                        customer.getEmail(),
+                        String.format("Hi %s, welcome to Amigoscode...", customer.getFirstName())
+                ));
     }
 }
