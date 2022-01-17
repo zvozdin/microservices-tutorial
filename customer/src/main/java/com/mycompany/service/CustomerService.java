@@ -1,19 +1,19 @@
 package com.mycompany.service;
 
+import com.mycompany.clients.fraud.FraudCheckResponce;
+import com.mycompany.clients.fraud.FraudClient;
 import com.mycompany.customer.Customer;
 import com.mycompany.customer.CustomerRegistrationRequest;
-import com.mycompany.customer.FraudCheckResponce;
 import com.mycompany.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 @RequiredArgsConstructor
 @Service
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
-    private final RestTemplate restTemplate;
+    private final FraudClient fraudClient;
 
     public void registerCustomer(CustomerRegistrationRequest request) {
         Customer customer = Customer.builder()
@@ -24,10 +24,7 @@ public class CustomerService {
 
         customerRepository.saveAndFlush(customer);
 
-        FraudCheckResponce fraudCheckResponce = restTemplate.getForObject(
-                "http://fraud/api/v1/fraud-check/{customerId}",
-                FraudCheckResponce.class,
-                customer.getId());
+        FraudCheckResponce fraudCheckResponce = fraudClient.isFraudster(customer.getId());
 
         if (fraudCheckResponce.isFraudster()) {
             throw new RuntimeException("fraudster!!!");
