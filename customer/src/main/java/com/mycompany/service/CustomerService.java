@@ -2,8 +2,8 @@ package com.mycompany.service;
 
 import com.mycompany.clients.fraud.FraudCheckResponce;
 import com.mycompany.clients.fraud.FraudClient;
-import com.mycompany.clients.notification.NotificationClient;
 import com.mycompany.clients.notification.NotificationRequest;
+import com.mycompany.rabbitmq.RabbitMQProducer;
 import com.mycompany.customer.Customer;
 import com.mycompany.customer.CustomerRegistrationRequest;
 import com.mycompany.repository.CustomerRepository;
@@ -16,7 +16,7 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final FraudClient fraudClient;
-    private final NotificationClient notificationClient;
+    private final RabbitMQProducer producer;
 
     public void registerCustomer(CustomerRegistrationRequest request) {
         Customer customer = Customer.builder()
@@ -33,11 +33,10 @@ public class CustomerService {
             throw new RuntimeException("fraudster!!!");
         }
 
-        notificationClient.sendNotification(
+        producer.send(
                 new NotificationRequest(
                         customer.getId(),
                         customer.getEmail(),
-                        String.format("Hi %s, welcome to Amigoscode...", customer.getFirstName())
-                ));
+                        String.format("Hi %s, welcome to Amigoscode...", customer.getFirstName())));
     }
 }
