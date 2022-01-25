@@ -1,12 +1,12 @@
-version: '3.3'
+version: '3'
 
 services:
   postgres:
     container_name: postgres
     image: postgres
     environment:
-      POSTGRES_USER: amigoscode
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PGDATA: /data/postgres
     networks:
       - postgres
@@ -20,10 +20,8 @@ services:
     container_name: pgadmin
     image: dpage/pgadmin4
     environment:
-#      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
-#      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
-      PGADMIN_DEFAULT_EMAIL: pgadmin4@pgadmin.org
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     networks:
       - postgres
@@ -32,98 +30,115 @@ services:
     ports:
       - "5050:80"
     restart: unless-stopped
+    depends_on:
+      - postgres
 
   zipkin:
     image: openzipkin/zipkin
     container_name: zipkin
     ports:
       - "9411:9411"
-
-# todo
-#    networks:
-#      - spring
-
+    networks:
+      - spring
   rabbitmq:
     image: rabbitmq:3.9.11-management-alpine
     container_name: rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
+    networks:
+      - spring
+    restart: always
+  eureka-server:
+    image: zvozdin/eureka-server:latest
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    environment:
+      SPRING_ZIPKIN_BASEURL: http://zipkin:9411
+    networks:
+      - spring
+    depends_on:
+      - zipkin
+    restart: always
+  apigw:
+    image: zvozdin/api-gateway:latest
+    container_name: apigw
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_ZIPKIN_BASEURL: ${SPRING_ZIPKIN_BASEURL}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
+      spring.cloud.gateway.routes.customer.uri: CUSTOMER
+#      spring.cloud.gateway.routes.customer.uri: customer
+    networks:
+      - spring
+    depends_on:
+      - eureka-server
+      - zipkin
+  customer:
+    image: zvozdin/customer:latest
+    container_name: customer
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/customer
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_ZIPKIN_BASEURL: ${SPRING_ZIPKIN_BASEURL}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
+      RABBIT_URI: ${RABBIT_URI}
+      SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST}
+    networks:
+      - spring
+      - postgres
+    depends_on:
+      - zipkin
+      - postgres
+      - rabbitmq
+      - eureka-server
+  fraud:
+    image: zvozdin/fraud:latest
+    container_name: fraud
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fraud
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_ZIPKIN_BASEURL: ${SPRING_ZIPKIN_BASEURL}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
+      RABBIT_URI: ${RABBIT_URI}
+      SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST}
+    networks:
+      - spring
+      - postgres
+    depends_on:
+      - zipkin
+      - postgres
+      - rabbitmq
+      - eureka-server
+  notification:
+    image: zvozdin/notification:latest
+    container_name: notification
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_ZIPKIN_BASEURL: ${SPRING_ZIPKIN_BASEURL}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
+      RABBIT_URI: ${RABBIT_URI}
+      SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST}
+    networks:
+      - spring
+      - postgres
+    depends_on:
+      - zipkin
+      - postgres
+      - eureka-server
+      - rabbitmq
 
-#    networks:
-#      - spring
-
-  #  eureka-server:
-  #    image: amigoscode/eureka-server:latest
-  #    container_name: eureka-server
-  #    ports:
-  #      - "8761:8761"
-  #    environment:
-  #      - SPRING_PROFILES_ACTIVE=docker
-  #    networks:
-  #      - spring
-  #    depends_on:
-  #      - zipkin
-  #  apigw:
-  #    image: amigoscode/apigw:latest
-  #    container_name: apigw
-  #    ports:
-  #      - "8083:8083"
-  #    environment:
-  #      - SPRING_PROFILES_ACTIVE=docker
-  #    networks:
-  #      - spring
-  #    depends_on:
-  #      - zipkin
-  #      - eureka-server
-
-#  customer:
-#    image: amigoscode/customer:latest
-#    container_name: customer
-#    ports:
-#      - "8080:8080"
-#    environment:
-#      - SPRING_PROFILES_ACTIVE=docker
-#    networks:
-#      - spring
-#      - postgres
-#    depends_on:
-#      - zipkin
-#      - postgres
-#      - rabbitmq
-#  fraud:
-#    image: amigoscode/fraud:latest
-#    container_name: fraud
-#    ports:
-#      - "8081:8081"
-#    environment:
-#      - SPRING_PROFILES_ACTIVE=docker
-#    networks:
-#      - spring
-#      - postgres
-#    depends_on:
-#      - zipkin
-#      - postgres
-#      - rabbitmq
-#  notification:
-#    image: amigoscode/notification:latest
-#    container_name: notification
-#    ports:
-#      - "8082:8082"
-#    environment:
-#      - SPRING_PROFILES_ACTIVE=docker
-#    networks:
-#      - spring
-#      - postgres
-#    depends_on:
-#      - zipkin
-#      - postgres
-#      - rabbitmq
 networks:
   postgres:
     driver: bridge
-  #  spring:
-  #    driver: bridge
+  spring:
+    driver: bridge
 
 volumes:
   postgres:
